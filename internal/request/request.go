@@ -17,7 +17,7 @@ const (
 
 type Request struct {
 	RequestLine RequestLine
-	InitState   int
+	InitState   InitState
 }
 
 type RequestLine struct {
@@ -32,52 +32,54 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	buf := make([]byte, bufferSize)
 	readToIndex := 0
 
-	r := Request{
-		RequestLine: RequestLine{},
-		InitState:   int(StateInitialised),
+	req := &Request{
+		InitState: StateInitialised,
 	}
 
-	for r.InitState != int(StateDone) {
-		if readToIndex == len(buf) {
+	for req.InitState != StateDone {
+		if readToIndex >= len(buf) {
 			newBuf := make([]byte, len(buf)*2)
 			copy(newBuf, buf[:readToIndex])
 			buf = newBuf
 		}
 
-		n, err := reader.Read(buf[readToIndex:])
-		if err == io.EOF {
-			r.InitState = int(StateDone)
-			break
-		}
-
-		readToIndex += n
-
-		parsedBytes, err := r.parse(buf[:readToIndex])
+		bytesRead, err := reader.Read(buf[readToIndex:])
 		if err != nil {
-			return &r, err
+			if err == io.EOF {
+				req.InitState = StateDone
+				break
+			}
+			return nil, err
+
+		}
+		readToIndex += bytesRead
+
+		parsedBytes, err := req.parse(buf[:readToIndex])
+		if err != nil {
+			return nil, err
 		}
 		copy(buf, buf[parsedBytes:readToIndex])
 		readToIndex -= parsedBytes
 	}
-	return &r, nil
+	return req, nil
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	if r.InitState == int(StateInitialised) {
+	switch r.InitState {
+	case StateInitialised:
 		requestLine, parsedBytes, err := parseRequestLine(data)
 		if err != nil {
 			return 0, err
 		}
 		if parsedBytes == 0 {
 			return 0, nil
-		} else {
-			r.RequestLine = *requestLine
-			r.InitState = int(StateDone)
-			return parsedBytes, nil
 		}
-	} else if r.InitState == int(StateDone) {
+		r.RequestLine = *requestLine
+		r.InitState = StateDone
+		return parsedBytes, nil
+	case StateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
-	} else {
+	default:
 		return 0, fmt.Errorf("error: unknown state")
 	}
 }
