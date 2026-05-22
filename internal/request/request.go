@@ -8,16 +8,16 @@ import (
 	"unicode"
 )
 
-type InitState int
+type requestState int
 
 const (
-	StateInitialised InitState = iota
+	StateInitialised requestState = iota
 	StateDone
 )
 
 type Request struct {
 	RequestLine RequestLine
-	InitState   InitState
+	state       requestState
 }
 
 type RequestLine struct {
@@ -33,10 +33,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	readToIndex := 0
 
 	req := &Request{
-		InitState: StateInitialised,
+		state: StateInitialised,
 	}
 
-	for req.InitState != StateDone {
+	for req.state != StateDone {
 		if readToIndex >= len(buf) {
 			newBuf := make([]byte, len(buf)*2)
 			copy(newBuf, buf[:readToIndex])
@@ -46,7 +46,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		bytesRead, err := reader.Read(buf[readToIndex:])
 		if err != nil {
 			if err == io.EOF {
-				req.InitState = StateDone
+				req.state = StateDone
 				break
 			}
 			return nil, err
@@ -65,7 +65,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	switch r.InitState {
+	switch r.state {
 	case StateInitialised:
 		requestLine, parsedBytes, err := parseRequestLine(data)
 		if err != nil {
@@ -75,7 +75,7 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		r.RequestLine = *requestLine
-		r.InitState = StateDone
+		r.state = StateDone
 		return parsedBytes, nil
 	case StateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
