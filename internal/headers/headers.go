@@ -67,7 +67,7 @@ func requestHeaderFromString(str string) (map[string]string, error) {
 	}
 
 	key := strings.ToLower(parts[0])
-	value := strings.ToLower(strings.TrimSpace(parts[1]))
+	value := strings.TrimSpace(parts[1])
 	if key == "" || value == "0" {
 		return nil, fmt.Errorf("invalid header")
 	}
