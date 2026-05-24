@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -15,12 +16,14 @@ type requestState int
 const (
 	StateInitialised requestState = iota
 	StateParsingHeaders
+	StateParsingBody
 	StateDone
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	state       requestState
 }
 
@@ -51,7 +54,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		bytesRead, err := reader.Read(buf[readToIndex:])
 		if err != nil {
 			if err == io.EOF {
-				req.state = StateDone
+				if req.state != StateDone {
+					return nil, fmt.Errorf("incomplete request, state: %d", req.state)
+				}
 				break
 			}
 			return nil, err
@@ -103,13 +108,28 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if parsedBytes == 0 {
-			return 0, nil
-		}
 		if done == true {
-			r.state = StateDone
+			r.state = StateParsingBody
 		}
 		return parsedBytes, nil
+	case StateParsingBody:
+		contentLengthHeader, ok := r.Headers.Get("Content-Length")
+		if !ok {
+			r.state = StateDone
+			return len(data), nil
+		}
+		contentLength, err := strconv.Atoi(contentLengthHeader)
+		if err != nil {
+			return 0, fmt.Errorf("error: cannot convert content-length header to integer")
+		}
+		r.Body = append(r.Body, data...)
+		if len(r.Body) > contentLength {
+			return 0, fmt.Errorf("error: data length exceeds allowed size")
+		}
+		if len(r.Body) == contentLength {
+			r.state = StateDone
+		}
+		return len(data), nil
 	case StateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:
@@ -148,7 +168,6 @@ func requestLineFromString(str string) (*RequestLine, error) {
 	requestTarget := requestLineParts[1]
 
 	versionParts := strings.Split(requestLineParts[2], "/")
-
 	httpPart := versionParts[0]
 	if httpPart != "HTTP" {
 		return nil, fmt.Errorf("unrecognized HTTP-version: %s", httpPart)

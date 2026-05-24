@@ -56,6 +56,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return idx + 2, false, nil
 }
 
+func (h Headers) Get(key string) (string, bool) {
+	value, ok := h[strings.ToLower(key)]
+	return value, ok
+}
+
 func requestHeaderFromString(str string) (map[string]string, error) {
 	if len(str) == 0 || str[0] == ' ' || str[0] == '\t' {
 		return nil, fmt.Errorf("invalid header spacing")
@@ -68,7 +73,7 @@ func requestHeaderFromString(str string) (map[string]string, error) {
 
 	key := strings.ToLower(parts[0])
 	value := strings.TrimSpace(parts[1])
-	if key == "" || value == "0" {
+	if key == "" || value == "" {
 		return nil, fmt.Errorf("invalid header")
 	}
 	if validHeaderKey(key) == false {
