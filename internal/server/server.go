@@ -5,6 +5,8 @@ import (
 	"net"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/pgrigorakis/httpfromtcp/internal/response"
 )
 
 type Server struct {
@@ -47,9 +49,9 @@ func (s *Server) listen() error {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n")
-	fmt.Fprintf(conn, "Content-Type: text/plain\r\n")
-	fmt.Fprintf(conn, "Content-Length: 13\r\n\r\n")
-	fmt.Fprintf(conn, "Hello World!")
+	response.WriteStatusLine(conn, response.Status200)
+	headers := response.GetDefaultHeaders(0)
+	response.WriteHeaders(conn, headers)
+
 	fmt.Fprintf(conn, "\nConnection to %s closed", conn.RemoteAddr())
 }
