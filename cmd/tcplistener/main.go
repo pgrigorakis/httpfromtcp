@@ -43,6 +43,9 @@ func main() {
 			fmt.Printf("- %s: %s\n", key, value)
 		}
 
+		fmt.Println("Body:")
+		fmt.Printf("%s\n", parsedRequest.Body)
+
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed.")
 
 	}
