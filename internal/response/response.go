@@ -3,7 +3,6 @@ package response
 import (
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/pgrigorakis/httpfromtcp/internal/headers"
 )
@@ -11,9 +10,9 @@ import (
 type StatusCode int
 
 const (
-	Status200 StatusCode = iota
-	Status400
-	Status500
+	Status200 StatusCode = 200
+	Status400 StatusCode = 400
+	Status500 StatusCode = 500
 )
 
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
@@ -44,18 +43,19 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
 	return headers.Headers{
-		"Content-Length": fmt.Sprintf("%s\r\n", strconv.Itoa(contentLen)),
-		"Connection":     "close\r\n",
-		"Content-Type":   "text/plain\r\n",
+		"Content-Length": fmt.Sprintf("%d", contentLen),
+		"Connection":     "close",
+		"Content-Type":   "text/plain",
 	}
 }
 
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	for key, value := range headers {
-		_, err := w.Write([]byte(fmt.Sprintf("%s: %s", key, value)))
+		_, err := w.Write([]byte(fmt.Sprintf("%s: %s\r\n", key, value)))
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	_, err := w.Write([]byte("\r\n"))
+	return err
 }

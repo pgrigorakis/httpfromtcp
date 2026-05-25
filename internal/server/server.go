@@ -51,7 +51,8 @@ func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 	response.WriteStatusLine(conn, response.Status200)
 	headers := response.GetDefaultHeaders(0)
-	response.WriteHeaders(conn, headers)
-
+	if err := response.WriteHeaders(conn, headers); err != nil {
+		fmt.Printf("error: %v\n", err)
+	}
 	fmt.Fprintf(conn, "\nConnection to %s closed", conn.RemoteAddr())
 }
