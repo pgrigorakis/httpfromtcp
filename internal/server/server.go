@@ -8,7 +8,7 @@ import (
 )
 
 type Server struct {
-	state    atomic.Bool
+	closed   atomic.Bool
 	listener net.Listener
 }
 
@@ -17,14 +17,10 @@ func Serve(port int) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not create listener to port %d", port)
 	}
-	server := Server{listener: listener}
+	server := &Server{listener: listener}
 
-	go func() {
-		server.state.Store(true)
-		server.listen()
-	}()
-
-	return &server, nil
+	go server.listen()
+	return server, nil
 }
 
 func (s *Server) Close() error {
@@ -32,22 +28,21 @@ func (s *Server) Close() error {
 	if err != nil {
 		return fmt.Errorf("could not close listener")
 	}
-	s.state.Store(false)
+	s.closed.Store(true)
 	return nil
 }
 
 func (s *Server) listen() error {
-	for s.state.Load() {
+	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
+			if s.closed.Load() {
+				return fmt.Errorf("server closed")
+			}
 			return fmt.Errorf("could not open connection")
 		}
-		go func(conn net.Conn) {
-			s.handle(conn)
-			conn.Close()
-		}(conn)
+		go s.handle(conn)
 	}
-	return nil
 }
 
 func (s *Server) handle(conn net.Conn) {
