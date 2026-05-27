@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -28,19 +27,16 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 
-func handler(w io.Writer, req *request.Request) *server.HandlerError {
-	handlerError := &server.HandlerError{}
+func handler(w *response.Writer, req *request.Request) {
 	switch req.RequestLine.RequestTarget {
 	case "/yourproblem":
-		handlerError.StatusCode = response.Status400
-		handlerError.Message = "Your problem is not my problem\n"
+		message := "<html><head><title>400 Bad Request</title></head><body><h1>Bad Request</h1><p>Your request honestly kinda sucked.</p></body></html>"
+		w.WriteResponse(response.Status400, []byte(message))
 	case "/myproblem":
-		handlerError.StatusCode = response.Status500
-		handlerError.Message = "Woopsie, my bad\n"
+		message := "<html><head><title>500 Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>Okay, you know what? This one is on me.</p></body></html>"
+		w.WriteResponse(response.Status500, []byte(message))
 	default:
-		w.Write([]byte("All good, frfr\n"))
-		return nil
+		message := "<html><head><title>200 OK</title></head><body><h1>Success!</h1><p>Your request was an absolute banger.</p></body></html>"
+		w.WriteResponse(response.Status200, []byte(message))
 	}
-
-	return handlerError
 }
