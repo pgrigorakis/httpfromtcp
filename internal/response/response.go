@@ -122,3 +122,35 @@ func (w *Writer) WriteResponse(statusCode StatusCode, p []byte) error {
 
 	return err
 }
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.writerState != writerStateBody {
+		return 0, fmt.Errorf("cannot write body in state %d", w.writerState)
+	}
+
+	_, err := w.writer.Write([]byte(fmt.Sprintf("%x\r\n", len(p))))
+	if err != nil {
+		return 0, err
+	}
+	_, err = w.writer.Write(p)
+	if err != nil {
+		return 0, err
+	}
+	_, err = w.writer.Write([]byte("\r\n"))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	if w.writerState != writerStateBody {
+		return 0, fmt.Errorf("cannot write body in state %d", w.writerState)
+	}
+
+	_, err := w.writer.Write([]byte("0\r\n\r\n"))
+	if err != nil {
+		return 0, err
+	}
+	return 0, nil
+}
