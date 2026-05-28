@@ -12,6 +12,41 @@ func NewHeaders() Headers {
 	return map[string]string{}
 }
 
+func (h Headers) Override(key, value string) {
+	h.Remove(key)
+	h[strings.ToLower(key)] = value
+}
+
+func (h Headers) Remove(key string) {
+	for k := range h {
+		if strings.EqualFold(k, key) {
+			delete(h, k)
+		}
+	}
+}
+
+func (h Headers) Get(key string) (string, bool) {
+	for k, value := range h {
+		if strings.EqualFold(k, key) {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func (h Headers) Set(key, value string) {
+	for k, v := range h {
+		if strings.EqualFold(k, key) {
+			h[k] = strings.Join([]string{
+				v,
+				value,
+			}, ", ")
+			return
+		}
+	}
+	h[strings.ToLower(key)] = value
+}
+
 var allowedSpecials = map[rune]bool{
 	'!':  true,
 	'#':  true,
@@ -54,11 +89,6 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		h[key] = value
 	}
 	return idx + 2, false, nil
-}
-
-func (h Headers) Get(key string) (string, bool) {
-	value, ok := h[strings.ToLower(key)]
-	return value, ok
 }
 
 func requestHeaderFromString(str string) (map[string]string, error) {

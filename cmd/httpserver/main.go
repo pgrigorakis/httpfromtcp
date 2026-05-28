@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -58,14 +61,14 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	defer res.Body.Close()
 
 	w.WriteStatusLine(response.Status200)
-	headers := headers.Headers{
-		"Connection":        "close",
-		"Content-Type":      "text/html",
-		"Transfer-Encoding": "chunked",
-	}
-	w.WriteHeaders(headers)
+	h := response.GetDefaultHeaders(0)
+	h.Override("Transfer-Encoding", "chunked")
+	h.Set("Trailer", "X-Content-SHA256, X-Content-Length")
+	h.Remove("Content-Length")
+	w.WriteHeaders(h)
 
 	buf := make([]byte, 1024)
+	var body bytes.Buffer
 	for {
 		n, err := res.Body.Read(buf)
 		if n > 0 {
@@ -73,6 +76,7 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 				log.Printf("%s\n", writeErr)
 				break
 			}
+			body.Write(buf[:n])
 		}
 		if err != nil {
 			if err == io.EOF {
@@ -81,8 +85,19 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 			log.Printf("%s\n", err)
 			break
 		}
+
 	}
 	_, err = w.WriteChunkedBodyDone()
+	if err != nil {
+		log.Printf("%s\n", err)
+	}
+
+	trailers := headers.Headers{
+		"X-Content-SHA256": fmt.Sprintf("%x", sha256.Sum256(body.Bytes())),
+		"X-Content-Length": fmt.Sprintf("%d", body.Len()),
+	}
+
+	err = w.WriteTrailers(trailers)
 	if err != nil {
 		log.Printf("%s\n", err)
 	}
