@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -45,6 +46,8 @@ func handler(w *response.Writer, req *request.Request) {
 		w.WriteResponse(response.Status500, []byte(message))
 	case strings.HasPrefix(target, "/httpbin/"):
 		proxyHandler(w, req)
+	case target == "/video":
+		videoHandler(w)
 	default:
 		message := "<html><head><title>200 OK</title></head><body><h1>Success!</h1><p>Your request was an absolute banger.</p></body></html>"
 		w.WriteResponse(response.Status200, []byte(message))
@@ -101,4 +104,19 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	if err != nil {
 		log.Printf("%s\n", err)
 	}
+}
+
+func videoHandler(w *response.Writer) {
+	video, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		log.Printf("%s\n", err)
+		return
+	}
+
+	w.WriteStatusLine(response.Status200)
+	h := response.GetDefaultHeaders(0)
+	h.Override("Content-Type", "video/mp4")
+	h.Override("Content-Length", strconv.Itoa(len(video)))
+	w.WriteHeaders(h)
+	w.WriteBody(video)
 }
